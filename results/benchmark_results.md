@@ -1,6 +1,6 @@
 # SPMBench Benchmark Results
 
-_Generated 2026-06-04 22:13 UTC_
+_2026-06-04 22:13 UTC_
 
 ---
 
