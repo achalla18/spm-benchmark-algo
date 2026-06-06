@@ -1,0 +1,5 @@
+cafe school 0.0001 0.0030 false false
+school park 0.0001 0.0040 false false
+
+cafe hospital 0.0001 0.0030 false false
+cafe station 0.0001 0.0040 true false
