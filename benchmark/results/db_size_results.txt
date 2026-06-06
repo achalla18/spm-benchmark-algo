@@ -1,0 +1,115 @@
+SPMBench - Database Size Sweep Results
+Run date: 2026-06-05
+Timeout per algorithm: 30 minutes (1800s)
+
+================================================================
+PAPERS UNDER TEST
+================================================================
+
+Paper 1: Fang et al., ICDE 2018
+  "Spatial Pattern Matching over Large-scale Geo-textual Data"
+  Algorithms: MPJ (Multi-Pair Join), MSJ (Multi-Star Join)
+
+Paper 2: Chen et al., TKDE 2020
+  "Efficient Spatial Pattern Matching over Large-Scale Geo-Textual Data"
+  Algorithm: ESPM (IL-Quadtree, n-match / e-match / join)
+
+================================================================
+SETUP
+================================================================
+
+Fixed across all runs:
+  Query nodes        : 20 (fully connected clique, 190 edges)
+  Distance bounds    : lower=0.0 deg, upper=0.1 deg (~11.1 km)
+  Edge flags         : mutual inclusion, no exclusion
+  Max matches        : 10 per algorithm
+  DB node type       : point
+  DB edge type       : metric (Euclidean degrees)
+  DB edge distrib.   : fully connected
+  Bounding box       : lat [51.0, 52.0] x lon [-0.5, 0.5]
+  Node placement     : uniform random, seed=42
+  Keywords           : 20 (one unique keyword per query node)
+  Grid cell size     : 0.1 deg
+
+What was varied:
+  DB=1,000   -> 50 objects/keyword   IL-Quadtree: split=1,  lmin=2, lmax=5
+  DB=10,000  -> 500 objects/keyword  IL-Quadtree: split=64, lmin=4, lmax=10
+
+================================================================
+TIMING RESULTS
+================================================================
+
+DB=1,000  (50 objects/keyword)
+  MPJ   ICDE 2018   0 matches     0.8683s
+  MSJ   ICDE 2018   0 matches     1.5290s
+  ESPM  TKDE 2020   0 matches     6.3224s
+
+  No matches found. At this density, the probability of any 20
+  objects (one per keyword) all lying within 0.1 deg of each
+  other is effectively zero with random uniform placement.
+
+DB=10,000  (500 objects/keyword)
+  MPJ   ICDE 2018   TIMED OUT     >1800s  (>30 min)
+  MSJ   ICDE 2018   10 matches    71.8108s         <-- only algorithm to complete
+  ESPM  TKDE 2020   TIMED OUT     >1800s  (>30 min)
+
+  MSJ found 10 matches (hit the cap). Matches exist at this
+  density: ~314 objects fall within any 0.1 deg radius circle,
+  giving ~16 objects per keyword per circle, making 20-cliques
+  geometrically feasible.
+
+================================================================
+SCALING: 1,000 -> 10,000 (10x DB size)
+================================================================
+
+  MPJ    0.8683s   ->  timeout (>1800s)   slowdown: >2073x
+  MSJ    1.5290s   ->  71.8108s           slowdown:   47.0x
+  ESPM   6.3224s   ->  timeout (>1800s)   slowdown:  >285x
+
+================================================================
+WHY EACH ALGORITHM BEHAVES THIS WAY
+================================================================
+
+MPJ (timed out at 10,000):
+  MPJ does not use anchor-pruning. Its backtracking join expands
+  one new keyword node at a time using only the direct edge
+  constraint, deferring all cross-pair checks until all 20 nodes
+  are assigned. At DB=10,000 with 500 objects/keyword:
+    - branching factor per step: ~15.7
+      (500 obj/kw x pi x 0.01 deg^2 = 15.7 expected within 0.1 deg)
+    - steps before any cross-pair check: 18
+    - paths explored: ~15.7^18 = 5.6 x 10^21
+  This is intractable regardless of how long it runs.
+
+MSJ (completes in 71.8s):
+  MSJ adds anchor-pruning to the join: each time a new object is
+  tentatively assigned, it immediately checks distances against
+  ALL previously assigned objects. Most branches fail at depth
+  3-4, keeping the tree manageable. Star-pruning (the pre-join
+  phase) provides little help here since 500 obj/kw means almost
+  every object finds at least one neighbor in each of the 19
+  other keywords within 0.1 deg. The 71.8s is dominated by the
+  anchor-pruned backtracking join.
+
+ESPM (timed out at 10,000):
+  ESPM's n-match phase traverses the IL-Quadtree for every one
+  of the 190 pattern edges at each tree level (lmin=4 to lmax=10).
+  With upper=0.1 deg covering ~10% of the 1x1 deg area, many
+  node-pair regions survive at each level and filtering stays
+  expensive throughout. ESPM's advantage appears at 10M+ objects
+  where tree-level pruning avoids disk I/O; on a 10,000-object
+  in-memory dataset the overhead dominates.
+
+================================================================
+SUMMARY
+================================================================
+
+  At DB=1,000:  all three algorithms complete quickly (< 7s).
+                MPJ and MSJ are comparable; ESPM is slowest.
+
+  At DB=10,000: only MSJ completes (71.8s, 10 matches found).
+                MPJ and ESPM both exceed the 30-minute timeout.
+
+  MSJ's anchor-pruning is the deciding factor at high database
+  density. It is the only algorithm among the three that scales
+  to 10,000 objects for a dense fully-connected 20-node query.
