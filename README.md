@@ -1,25 +1,23 @@
 # SPM Benchmark
 
-Clean version of the spatial pattern matching benchmark.
-
-Algorithms included:
+Small benchmark for three spatial pattern matching implementations:
 
 - MPJ
 - MSJ
 - ESPM
 
-The input files are in `data/UK`.
+The code is in `src/`. The sample data is in `data/UK/`.
 
-Run all three algorithms on one pattern:
+Run all three algorithms:
 
 ```bash
-python src/main.py --pattern 0 --algo all
+python src/main.py --algo all --pattern 0
 ```
 
 Run one algorithm:
 
 ```bash
-python src/main.py --pattern 0 --algo espm
+python src/main.py --algo espm --pattern 0
 ```
 
-Use `--max-matches 0` if you want every match instead of stopping early.
+Use `--max-matches 0` to return every match.
